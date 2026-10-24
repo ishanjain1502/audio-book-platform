@@ -1,0 +1,29 @@
+[
+  {
+    "id": "bf322df2096a46f18c579d0baa36f41d",
+    "name": "Adrian",
+    "gender": "male",
+    "age_impression": "mature",
+    "language": "en-US",
+    "tags": ["neutral", "warm", "authoritative"],
+    "reserved_for": "narrator"
+  },
+  {
+    "id": "c70cfb98867a4bfb9ae20d2401257b92",
+    "name": "Delia",
+    "gender": "female",
+    "age_impression": "young-adult",
+    "language": "en-US",
+    "tags": ["bright", "energetic", "storytelling"],
+    "reserved_for": null
+  },
+  {
+    "id": "f3a2b90078d54a65af4b95f63bc7798e",
+    "name": "Sheila",
+    "gender": "female",
+    "age_impression": "adult",
+    "language": "en-US",
+    "tags": ["nervous", "expressive", "soft"],
+    "reserved_for": null
+  }
+]
