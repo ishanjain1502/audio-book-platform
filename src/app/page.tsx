@@ -2,6 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { FileDropzone } from "@/components/ui/FileDropzone";
+import { GlassCard } from "@/components/ui/GlassCard";
 
 export default function Home() {
   const router = useRouter();
@@ -35,50 +39,64 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto max-w-lg p-8">
-      <h1 className="text-2xl font-semibold">Audiobook Generator</h1>
-      <p className="mt-2 text-sm text-zinc-400">
-        Upload a text PDF. Optional narrator voice: 15–20 seconds.
-      </p>
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
-        <label className="block text-sm">
-          Email
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          PDF
-          <input
-            type="file"
+    <main className="mx-auto w-full max-w-lg px-4 pb-12 sm:px-6">
+      <div className="mb-8">
+        <h1 className="font-display text-3xl font-semibold tracking-tight md:text-4xl lg:text-[2.75rem]">
+          Turn your PDF into an audiobook
+        </h1>
+        <p className="mt-3 text-sm text-ink-muted md:text-base">
+          Upload a text PDF. Optional narrator voice: 15–20 seconds for a custom
+          tone.
+        </p>
+      </div>
+
+      <GlassCard accent>
+        <form onSubmit={onSubmit} className="space-y-6">
+          <label className="block text-sm">
+            <span className="text-ink-primary">Email</span>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="surface-input mt-2 min-h-11 w-full rounded-xl px-3 py-2 text-ink-primary focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+          </label>
+
+          <FileDropzone
+            label="PDF"
             accept="application/pdf"
-            required
-            onChange={(e) => setPdf(e.target.files?.[0] ?? null)}
-            className="mt-1 w-full text-sm"
+            file={pdf}
+            onFile={setPdf}
+            hint="Text-based PDF required"
           />
-        </label>
-        <label className="block text-sm">
-          Narrator voice sample (optional, 15–20s)
-          <input
-            type="file"
+
+          <FileDropzone
+            label="Narrator voice sample (optional)"
             accept="audio/*"
-            onChange={(e) => setVoice(e.target.files?.[0] ?? null)}
-            className="mt-1 w-full text-sm"
+            file={voice}
+            onFile={setVoice}
+            hint="15–20 seconds of clear speech"
           />
-        </label>
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium disabled:opacity-50"
-        >
-          {loading ? "Uploading…" : "Generate audiobook"}
-        </button>
-      </form>
+
+          {error && <p className="text-sm text-semantic-error">{error}</p>}
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full gap-2 md:w-auto md:max-w-xs"
+          >
+            {loading ? (
+              "Uploading…"
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                Generate audiobook
+              </>
+            )}
+          </Button>
+        </form>
+      </GlassCard>
     </main>
   );
 }

@@ -1,3 +1,4 @@
+import { concatMp3Buffers } from "@/lib/audio/stitch";
 import {
   DEFAULT_FALLBACK_MODEL,
   DRAMA3_MODEL,
@@ -62,7 +63,7 @@ export async function synthesize(input: {
     buffers.push(buf);
   }
 
-  return Buffer.concat(buffers);
+  return concatMp3Buffers(buffers);
 }
 
 export async function synthesizeWithFallback(input: {

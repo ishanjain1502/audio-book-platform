@@ -1,3 +1,121 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bg-deep: #f4f6fa;
+  --bg-deep-end: #ffffff;
+  --bg-elevated: rgba(255, 255, 255, 0.92);
+  --text-primary: #18181b;
+  --text-muted: #71717a;
+  --border-subtle: rgba(24, 24, 27, 0.1);
+  --surface-subtle: rgba(24, 24, 27, 0.04);
+  --surface-input: #ffffff;
+  --progress-track: rgba(24, 24, 27, 0.08);
+  --accent: #0d9488;
+  --accent-secondary: #6d28d9;
+  --error: #dc2626;
+  --success: #0d9488;
+  --text-on-accent: #ffffff;
+}
+
+@layer base {
+  body {
+    color: var(--text-primary);
+    background: var(--bg-deep);
+  }
+}
+
+@layer components {
+  .app-starfield {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(
+        ellipse 120% 80% at 50% -20%,
+        rgba(13, 148, 136, 0.12),
+        transparent 55%
+      ),
+      linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-deep-end) 100%);
+  }
+
+  .app-starfield::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.4;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(24, 24, 27, 0.12), transparent),
+      radial-gradient(1px 1px at 80% 10%, rgba(24, 24, 27, 0.1), transparent),
+      radial-gradient(1px 1px at 40% 70%, rgba(24, 24, 27, 0.08), transparent);
+    background-size: 200% 200%;
+  }
+
+  .glass-panel {
+    @apply rounded-2xl backdrop-blur-xl;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+    box-shadow:
+      0 1px 2px rgba(24, 24, 27, 0.04),
+      0 8px 24px -8px rgba(24, 24, 27, 0.08);
+  }
+
+  .glass-panel-accent {
+    @apply rounded-2xl backdrop-blur-xl;
+    border: 1px solid rgba(13, 148, 136, 0.25);
+    background: var(--bg-elevated);
+    box-shadow:
+      0 1px 2px rgba(24, 24, 27, 0.04),
+      0 12px 32px -12px rgba(13, 148, 136, 0.2);
+  }
+
+  .surface-subtle {
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .surface-input {
+    background: var(--surface-input);
+    border: 1px solid var(--border-subtle);
+  }
+}
+
+@layer utilities {
+  .animate-page-in {
+    animation: page-in 200ms ease-out both;
+  }
+
+  .animate-chapter-ready {
+    animation: chapter-ready 250ms ease-out both;
+  }
+
+  @keyframes page-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes chapter-ready {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-page-in,
+    .animate-chapter-ready {
+      animation: none;
+    }
+  }
+}

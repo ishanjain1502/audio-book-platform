@@ -1,14 +1,9 @@
 import fs from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db/client";
+import { jobDir, readJobStatus } from "@/lib/jobs/statusFile";
 
 export const runtime = "nodejs";
-
-function dataDir(): string {
-  const raw = process.env.DATA_DIR ?? "./src/data";
-  return path.isAbsolute(raw) ? raw : path.join(process.cwd(), raw);
-}
 
 export async function GET(
   _request: Request,
@@ -20,47 +15,39 @@ export async function GET(
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  const db = getDb();
-  const job = db.prepare("SELECT * FROM jobs WHERE id = ?").get(jobId) as
-    | {
-        id: number;
-        status: string;
-        error: string | null;
-        email: string;
-      }
-    | undefined;
-
-  if (!job) {
+  const status = readJobStatus(jobId);
+  if (!status) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const chapters = db
-    .prepare(
-      "SELECT idx, title FROM chapters WHERE job_id = ? ORDER BY idx",
-    )
-    .all(jobId) as { idx: number; title: string }[];
-
-  const jobDir = path.join(dataDir(), "jobs", String(jobId));
-  const downloads = chapters.map((ch) => {
-    const file = path.join(jobDir, `chapter-${ch.idx}.mp3`);
+  const dir = jobDir(jobId);
+  const chapters = status.chapters.map((ch) => {
+    const file = path.join(dir, `chapter-${ch.idx}.mp3`);
+    const ready = fs.existsSync(file);
     return {
       title: ch.title,
-      ready: fs.existsSync(file),
+      ready,
       downloadUrl: `/api/jobs/${jobId}/chapters/${ch.idx}`,
     };
   });
 
   const total = chapters.length;
-  const ready = downloads.filter((d) => d.ready).length;
+  const readyCount = chapters.filter((c) => c.ready).length;
   const progress =
-    total === 0 ? 0 : Math.round((ready / total) * 100);
+    status.progress > 0
+      ? status.progress
+      : total === 0
+        ? 0
+        : Math.round((readyCount / total) * 100);
 
   return NextResponse.json({
-    id: job.id,
-    status: job.status,
-    error: job.error,
-    email: job.email,
+    id: status.id,
+    status: status.status,
+    error: status.error ?? null,
+    email: status.email,
     progress,
-    chapters: downloads,
+    phase: status.phase ?? null,
+    detail: status.detail ?? null,
+    chapters,
   });
 }

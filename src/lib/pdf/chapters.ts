@@ -56,6 +56,35 @@ export function splitChapters(fullText: string): Chapter[] {
   return chapters.filter((c) => c.rawText.length > 0);
 }
 
+/** Keep LLM + TTS chunks bounded when PDFs lack blank-line paragraph breaks. */
+const MAX_PARAGRAPH_CHARS = 1500;
+
+function splitLongBlock(text: string): string[] {
+  const sentences = text.match(/[^.!?]+[.!?]+|[^\s.!?]+/g) ?? [text];
+  const chunks: string[] = [];
+  let current = "";
+  for (const sentence of sentences) {
+    const next = current + sentence;
+    if (next.length > MAX_PARAGRAPH_CHARS && current.trim()) {
+      chunks.push(current.trim());
+      current = sentence;
+    } else {
+      current = next;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length ? chunks : [text];
+}
+
 export function splitIntoParagraphs(chapterText: string): string[] {
-  return splitParagraphs(chapterText);
+  const parts = splitParagraphs(chapterText);
+  const out: string[] = [];
+  for (const part of parts) {
+    if (part.length > MAX_PARAGRAPH_CHARS) {
+      out.push(...splitLongBlock(part));
+    } else {
+      out.push(part);
+    }
+  }
+  return out.filter(Boolean);
 }

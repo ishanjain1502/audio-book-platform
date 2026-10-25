@@ -18,6 +18,7 @@ import {
   referenceIdsInOrder,
   speakerMapForChapter,
 } from "@/lib/voices/assign";
+import { createJobLogger } from "@/lib/jobs/jobLog";
 
 function dataDir(): string {
   const raw = process.env.DATA_DIR ?? "./src/data";
@@ -43,7 +44,19 @@ function setJobStatus(
   }
 }
 
-export async function runJob(jobId: number): Promise<void> {
+export type JobProgressPatch = {
+  status?: string;
+  progress?: number;
+  phase?: string;
+  detail?: string;
+  chapters?: { idx: number; title: string; ready: boolean }[];
+  error?: string | null;
+};
+
+export async function runJob(
+  jobId: number,
+  onProgress?: (patch: JobProgressPatch) => void,
+): Promise<void> {
   const db = getDb();
   const job = db
     .prepare("SELECT * FROM jobs WHERE id = ?")
@@ -60,6 +73,10 @@ export async function runJob(jobId: number): Promise<void> {
   }
 
   setJobStatus(jobId, "processing");
+  const log = createJobLogger(jobId);
+  log.info("processing started");
+
+  const report = (patch: JobProgressPatch) => onProgress?.(patch);
 
   try {
     const book = db
@@ -88,7 +105,32 @@ export async function runJob(jobId: number): Promise<void> {
       );
     }
 
+    const segmentPlan = chapters.map((ch) => ({
+      chapter: ch,
+      paragraphs: splitIntoParagraphs(ch.text),
+    }));
+    const totalSegments = segmentPlan.reduce(
+      (n, s) => n + s.paragraphs.length,
+      0,
+    );
+    const totalWorkUnits = Math.max(1, totalSegments * 2);
+    let workUnitsDone = 0;
+
+    const bumpProgress = (phase: string, detail: string) => {
+      report({
+        status: "processing",
+        phase,
+        detail,
+        progress: Math.min(
+          99,
+          Math.round((workUnitsDone / totalWorkUnits) * 100),
+        ),
+      });
+    };
+
     if (!assigned) {
+      log.info("building character map (web research or text sample)");
+      report({ phase: "character_map", detail: "Researching characters…" });
       const fullText = chapters.map((c) => c.text).join("\n\n");
       const mapResult = await buildCharacterMap({
         title: book.title,
@@ -97,14 +139,19 @@ export async function runJob(jobId: number): Promise<void> {
       });
       assigned = assignVoices(mapResult.characters, narratorVoiceId);
       saveCharacterMaps(book.id, assigned, mapResult.mode);
+      log.info(
+        `character map ready: ${assigned.length} voices (${mapResult.mode}, ${mapResult.sources_found} sources)`,
+      );
     } else if (narratorVoiceId) {
       assigned = assigned.map((c) =>
         c.role === "narrator" ? { ...c, voice_id: narratorVoiceId! } : c,
       );
       saveCharacterMaps(book.id, assigned, "cached");
+    } else {
+      log.info(`using cached character map (${assigned!.length} characters)`);
     }
 
-    const referenceIds = referenceIdsInOrder(assigned);
+    const referenceIds = referenceIdsInOrder(assigned!);
     const jobDir = path.join(dataDir(), "jobs", String(jobId));
     fs.mkdirSync(jobDir, { recursive: true });
 
@@ -112,16 +159,37 @@ export async function runJob(jobId: number): Promise<void> {
 
     for (const chapter of chapters) {
       const paragraphs = splitIntoParagraphs(chapter.text);
-      const speakerMap = speakerMapForChapter(assigned);
+      log.info(
+        `chapter ${chapter.idx} "${chapter.title}" — ${paragraphs.length} paragraphs`,
+      );
+      const speakerMap = speakerMapForChapter(assigned!);
 
       const annotationJobs = paragraphs.map((p, i) => ({
+        chapterIdx: chapter.idx,
+        paragraphIdx: i,
+        totalInChapter: paragraphs.length,
         paragraph: p,
         prev: i > 0 ? paragraphs[i - 1] : null,
         next: i < paragraphs.length - 1 ? paragraphs[i + 1] : null,
         speakerMap,
       }));
 
-      const annotated = await annotateParagraphsParallel(annotationJobs);
+      bumpProgress(
+        "annotate",
+        `Chapter ${chapter.idx + 1}/${chapters.length}: annotating 0/${paragraphs.length}`,
+      );
+
+      const annotated = await annotateParagraphsParallel(annotationJobs, {
+        log,
+        onParagraphDone: (done, total) => {
+          workUnitsDone += 1;
+          bumpProgress(
+            "annotate",
+            `Chapter ${chapter.idx + 1}/${chapters.length}: annotated ${done}/${total}`,
+          );
+        },
+      });
+      log.info(`chapter ${chapter.idx} annotation complete`);
 
       const segmentRows = annotated.map((a, paragraphIdx) => ({
         chapter_idx: chapter.idx,
@@ -144,6 +212,9 @@ export async function runJob(jobId: number): Promise<void> {
       }
 
       const synthJobs = segmentRows.map((row) => ({
+        chapterIdx: row.chapter_idx,
+        paragraphIdx: row.paragraph_idx,
+        totalInChapter: paragraphs.length,
         annotatedText: row.annotated_text,
         referenceIds,
         outputPath: path.join(
@@ -152,7 +223,21 @@ export async function runJob(jobId: number): Promise<void> {
         ),
       }));
 
-      await synthesizeJobsParallel(synthJobs);
+      bumpProgress(
+        "synthesize",
+        `Chapter ${chapter.idx + 1}/${chapters.length}: TTS 0/${synthJobs.length}`,
+      );
+      await synthesizeJobsParallel(synthJobs, {
+        log,
+        onSegmentDone: (done, total) => {
+          workUnitsDone += 1;
+          bumpProgress(
+            "synthesize",
+            `Chapter ${chapter.idx + 1}/${chapters.length}: TTS ${done}/${total}`,
+          );
+        },
+      });
+      log.info(`chapter ${chapter.idx} synthesis complete`);
 
       const chapterOut = path.join(jobDir, `chapter-${chapter.idx}.mp3`);
       stitchMp3Files(
@@ -161,18 +246,33 @@ export async function runJob(jobId: number): Promise<void> {
       );
       chapterOutputs.push(chapterOut);
 
+      const chapterTotal = chapters.length;
+      onProgress?.({
+        progress: Math.round(((chapter.idx + 1) / chapterTotal) * 100),
+        chapters: chapters.map((c) => ({
+          idx: c.idx,
+          title: c.title,
+          ready: c.idx <= chapter.idx,
+        })),
+      });
+
       db.prepare(
         `UPDATE segments SET status = 'synthesized', audio_path = ?
          WHERE job_id = ? AND chapter_idx = ?`,
       ).run(synthJobs[0]?.outputPath ?? null, jobId, chapter.idx);
     }
 
+    log.info("stitching / finishing");
+    report({ phase: "finishing", detail: "Wrapping up…", progress: 99 });
     setJobStatus(jobId, "stitching");
     sendEmailStub(job.email, chapterOutputs);
     setJobStatus(jobId, "done");
+    log.info(`done — ${chapterOutputs.length} chapter MP3(s)`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    log.error(message);
     setJobStatus(jobId, "failed", message);
+    report({ status: "failed", error: message, phase: "failed", detail: message });
     throw err;
   }
 }

@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { JobProgress } from "@/components/ui/JobProgress";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ChapterPlayer } from "@/components/ui/ChapterPlayer";
 
 type JobStatus = {
   id: number;
   status: string;
   error: string | null;
   progress: number;
+  phase: string | null;
+  detail: string | null;
   chapters: { title: string; ready: boolean; downloadUrl: string }[];
 };
 
@@ -37,37 +43,78 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
   if (!id) return null;
 
+  const processing =
+    job &&
+    !["completed", "complete", "failed", "error"].includes(
+      job.status.toLowerCase(),
+    );
+
   return (
-    <main className="mx-auto max-w-lg p-8">
-      <h1 className="text-xl font-semibold">Job #{id}</h1>
+    <main className="mx-auto w-full max-w-3xl px-4 pb-12 sm:px-6">
+      <div className="mb-6 md:flex md:items-center md:justify-between md:gap-4">
+        <h1 className="font-display text-xl font-semibold tracking-tight md:text-2xl">
+          Job #{id}
+        </h1>
+        {job && <StatusBadge status={job.status} />}
+      </div>
+
       {!job ? (
-        <p className="mt-4 text-zinc-400">Loading…</p>
-      ) : (
-        <div className="mt-4 space-y-3">
-          <p className="text-sm">
-            Status: <span className="text-zinc-200">{job.status}</span>
+        <GlassCard>
+          <p className="text-center text-sm text-ink-muted md:text-base">
+            Loading…
           </p>
-          <p className="text-sm">Progress: {job.progress}%</p>
-          {job.error && (
-            <p className="text-sm text-red-400">{job.error}</p>
-          )}
-          <ul className="space-y-2 text-sm">
-            {job.chapters.map((ch) => (
-              <li key={ch.title} className="flex items-center justify-between gap-2">
-                <span className="truncate">{ch.title}</span>
-                {ch.ready ? (
-                  <a
-                    href={ch.downloadUrl}
-                    className="text-indigo-400 hover:underline"
-                  >
-                    Download
-                  </a>
-                ) : (
-                  <span className="text-zinc-500">pending</span>
-                )}
-              </li>
-            ))}
-          </ul>
+        </GlassCard>
+      ) : (
+        <div className="space-y-6">
+          <GlassCard accent>
+            <JobProgress value={job.progress} pulsing={!!processing} />
+            {job.phase && (
+              <p className="mt-4 text-sm text-ink-muted md:text-base">
+                {job.phase}
+                {job.detail ? ` — ${job.detail}` : ""}
+              </p>
+            )}
+            {job.error && (
+              <p className="mt-3 text-sm text-semantic-error">{job.error}</p>
+            )}
+          </GlassCard>
+
+          <section>
+            <h2 className="mb-3 font-display text-lg font-medium text-ink-primary">
+              Chapters
+            </h2>
+            <ul
+              className={
+                job.chapters.length > 1
+                  ? "grid list-none gap-4 md:grid-cols-2"
+                  : "grid list-none gap-4"
+              }
+            >
+              {job.chapters.map((ch) => (
+                <li key={ch.title}>
+                  <ChapterPlayer
+                    title={ch.title}
+                    ready={ch.ready}
+                    downloadUrl={ch.downloadUrl}
+                    seed={`${id}-${ch.title}`}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <details className="text-sm text-ink-muted">
+            <summary className="cursor-pointer text-accent-secondary">
+              Developer
+            </summary>
+            <p className="mt-2">
+              Live log:{" "}
+              <code className="text-ink-primary">
+                src/data/jobs/{id}/progress.log
+              </code>{" "}
+              (also printed in the terminal where the worker runs)
+            </p>
+          </details>
         </div>
       )}
     </main>
