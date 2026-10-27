@@ -59,19 +59,23 @@ export async function ensureBookResearch(
       fullText: chapters.map((chapter) => chapter.text).join("\n\n"),
     });
     const assigned = assignVoices(map.characters, null);
-    const saved = db
-      .prepare(
-        `UPDATE books
-         SET researched_at = ?, research_mode = ?, research_started_at = NULL, research_error = NULL
-         WHERE id = ? AND research_started_at = ?`,
-      )
-      .run(now.toISOString(), map.mode, book.id, lockAt);
-    if (saved.changes === 0) {
+    const committed = db.transaction(() => {
+      const saved = db
+        .prepare(
+          `UPDATE books
+           SET researched_at = ?, research_mode = ?, research_started_at = NULL, research_error = NULL
+           WHERE id = ? AND research_started_at = ?`,
+        )
+        .run(now.toISOString(), map.mode, book.id, lockAt);
+      if (saved.changes === 0) return { won: false as const };
+      saveCharacterMaps(book.id, assigned, map.mode);
+      return { won: true as const };
+    })();
+    if (!committed.won) {
       const current = getBook(book.id);
       if (current?.researchedAt) return readyResult(book.id, current.researchMode);
       return { status: "running" };
     }
-    saveCharacterMaps(book.id, assigned, map.mode);
     return readyResult(book.id, map.mode);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

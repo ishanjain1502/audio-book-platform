@@ -190,4 +190,38 @@ describe("ensureBookResearch", () => {
     expect(book?.researchError).toBeNull();
     expect(book?.researchStartedAt).toBe(stolenAt);
   });
+
+  it("rolls back research success when saving character maps throws", async () => {
+    const { buildCharacterMap } = await import("@/lib/research/characterMap");
+    vi.mocked(buildCharacterMap).mockResolvedValue({
+      book_title: "Original",
+      author: "Unknown",
+      mode: "text_sample",
+      sources_found: 0,
+      characters: [character],
+    });
+    const maps = await import("@/lib/book/characterMapsDb");
+    const spy = vi.spyOn(maps, "saveCharacterMaps").mockImplementation(() => {
+      throw new Error("map save failed");
+    });
+    try {
+      const jobId = await seedJob();
+      const { ensureBookResearch } = await import("@/lib/research/ensureBookResearch");
+      const { getBook } = await import("@/lib/book/meta");
+      const result = await ensureBookResearch(jobId);
+      expect(result).toEqual({ status: "failed", error: "map save failed" });
+      const { getDb } = await import("@/lib/db/client");
+      const bookId = (
+        getDb().prepare("SELECT book_id FROM jobs WHERE id = ?").get(jobId) as {
+          book_id: number;
+        }
+      ).book_id;
+      const book = getBook(bookId);
+      expect(book?.researchedAt).toBeNull();
+      expect(book?.researchError).toBe("map save failed");
+      expect(book?.researchStartedAt).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
