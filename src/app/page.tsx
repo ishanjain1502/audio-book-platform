@@ -35,7 +35,7 @@ export default function Home() {
       setError(data.error ?? "Upload failed");
       return;
     }
-    router.push(`/jobs/${data.jobId}`);
+    router.push(`/jobs/${data.jobId}/review`);
   }
 
   return (
