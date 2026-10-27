@@ -28,6 +28,7 @@ export default function ReviewPage({
   const [author, setAuthor] = useState("");
   const [pageCount, setPageCount] = useState("");
   const [researchStatus, setResearchStatus] = useState<ReviewJob["researchStatus"]>("idle");
+  const [loadedId, setLoadedId] = useState<string | null>(null);
   const [researchMode, setResearchMode] = useState<string | null>(null);
   const [researchError, setResearchError] = useState<string | null>(null);
   const [characters, setCharacters] = useState<CharacterSummary[]>([]);
@@ -57,6 +58,8 @@ export default function ReviewPage({
       const res = await fetch(`/api/jobs/${id}`);
       if (!res.ok || !active) return;
       apply((await res.json()) as ReviewJob, fillFields);
+      if (!active) return;
+      setLoadedId(id);
     };
     void load(true);
     return () => {
@@ -65,29 +68,41 @@ export default function ReviewPage({
   }, [id]);
 
   useEffect(() => {
-    if (!id || researchStatus !== "idle") return;
+    if (!id || loadedId !== id || researchStatus !== "idle") return;
     let active = true;
     void (async () => {
-      const res = await fetch(`/api/jobs/${id}/research`, { method: "POST" });
-      if (!active) return;
-      const body = (await res.json()) as {
-        status: ReviewJob["researchStatus"];
-        error?: string;
-        characters?: CharacterSummary[];
-        researchMode?: string | null;
-      };
-      setResearchStatus(body.status);
-      if (body.status === "failed") setResearchError(body.error ?? "Research failed");
-      if (body.status === "ready") {
-        setCharacters(body.characters ?? []);
-        setResearchMode(body.researchMode ?? null);
-        setResearchError(null);
+      try {
+        const res = await fetch(`/api/jobs/${id}/research`, { method: "POST" });
+        if (!active) return;
+        if (!res.ok) {
+          setResearchStatus("failed");
+          setResearchError("Research failed");
+          return;
+        }
+        const body = (await res.json()) as {
+          status: ReviewJob["researchStatus"];
+          error?: string;
+          characters?: CharacterSummary[];
+          researchMode?: string | null;
+        };
+        if (!active) return;
+        setResearchStatus(body.status);
+        if (body.status === "failed") setResearchError(body.error ?? "Research failed");
+        if (body.status === "ready") {
+          setCharacters(body.characters ?? []);
+          setResearchMode(body.researchMode ?? null);
+          setResearchError(null);
+        }
+      } catch {
+        if (!active) return;
+        setResearchStatus("failed");
+        setResearchError("Research failed");
       }
     })();
     return () => {
       active = false;
     };
-  }, [id, researchStatus]);
+  }, [id, loadedId, researchStatus]);
 
   useEffect(() => {
     if (!id || researchStatus !== "running") return;
