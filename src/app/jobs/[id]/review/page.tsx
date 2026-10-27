@@ -8,6 +8,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 type CharacterSummary = { name: string; role: string; tonality: string[] };
 
 type ReviewJob = {
+  status: string;
   title: string | null;
   author: string | null;
   pageCount: number | null;
@@ -27,6 +28,7 @@ export default function ReviewPage({
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [pageCount, setPageCount] = useState("");
+  const [jobStatus, setJobStatus] = useState<string | null>(null);
   const [researchStatus, setResearchStatus] = useState<ReviewJob["researchStatus"]>("idle");
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [researchMode, setResearchMode] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export default function ReviewPage({
       setAuthor(job.author ?? "");
       setPageCount(job.pageCount == null ? "" : String(job.pageCount));
     }
+    setJobStatus(job.status);
     setResearchStatus(job.researchStatus);
     setResearchMode(job.researchMode);
     setResearchError(job.researchError);
@@ -156,7 +159,11 @@ export default function ReviewPage({
 
   const pageOk = Number.isInteger(Number(pageCount)) && Number(pageCount) >= 1;
   const canConfirm =
-    researchStatus === "ready" && title.trim().length > 0 && pageOk && !saving;
+    jobStatus === "awaiting_review" &&
+    researchStatus === "ready" &&
+    title.trim().length > 0 &&
+    pageOk &&
+    !saving;
 
   if (!id) return null;
 
