@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug job worker",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": ["--import", "tsx", "--inspect-brk"],
+      "args": ["${workspaceFolder}/scripts/run-job.ts", "${input:jobId}"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "jobId",
+      "type": "promptString",
+      "description": "Job ID (folder under src/data/jobs/)"
+    }
+  ]
+}
