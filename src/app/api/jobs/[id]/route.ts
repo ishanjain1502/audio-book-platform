@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
+import { readJobReview } from "@/lib/jobs/readJobReview";
 import { jobDir, readJobStatus } from "@/lib/jobs/statusFile";
 
 export const runtime = "nodejs";
@@ -40,6 +41,7 @@ export async function GET(
         ? 0
         : Math.round((readyCount / total) * 100);
 
+  const review = readJobReview(jobId);
   return NextResponse.json({
     id: status.id,
     status: status.status,
@@ -49,5 +51,6 @@ export async function GET(
     phase: status.phase ?? null,
     detail: status.detail ?? null,
     chapters,
+    ...review,
   });
 }
