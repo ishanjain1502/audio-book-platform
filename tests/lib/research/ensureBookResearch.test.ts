@@ -134,4 +134,60 @@ describe("ensureBookResearch", () => {
     expect(result).toEqual({ status: "running" });
     expect(buildCharacterMap).not.toHaveBeenCalled();
   });
+
+  it("does not save research after the lock is stolen", async () => {
+    const { buildCharacterMap } = await import("@/lib/research/characterMap");
+    const jobId = await seedJob();
+    const { getDb } = await import("@/lib/db/client");
+    const bookId = (
+      getDb().prepare("SELECT book_id FROM jobs WHERE id = ?").get(jobId) as {
+        book_id: number;
+      }
+    ).book_id;
+    const stolenAt = new Date(Date.now() + 60_000).toISOString();
+    vi.mocked(buildCharacterMap).mockImplementation(async () => {
+      getDb()
+        .prepare("UPDATE books SET research_started_at = ? WHERE id = ?")
+        .run(stolenAt, bookId);
+      return {
+        book_title: "Original",
+        author: "Unknown",
+        mode: "text_sample",
+        sources_found: 0,
+        characters: [character],
+      };
+    });
+    const { ensureBookResearch } = await import("@/lib/research/ensureBookResearch");
+    const { getBook } = await import("@/lib/book/meta");
+    const result = await ensureBookResearch(jobId);
+    expect(result.status).toBe("running");
+    const book = getBook(bookId);
+    expect(book?.researchedAt).toBeNull();
+    expect(book?.researchStartedAt).toBe(stolenAt);
+  });
+
+  it("does not record a failure after the lock is stolen", async () => {
+    const { buildCharacterMap } = await import("@/lib/research/characterMap");
+    const jobId = await seedJob();
+    const { getDb } = await import("@/lib/db/client");
+    const bookId = (
+      getDb().prepare("SELECT book_id FROM jobs WHERE id = ?").get(jobId) as {
+        book_id: number;
+      }
+    ).book_id;
+    const stolenAt = new Date(Date.now() + 60_000).toISOString();
+    vi.mocked(buildCharacterMap).mockImplementation(async () => {
+      getDb()
+        .prepare("UPDATE books SET research_started_at = ? WHERE id = ?")
+        .run(stolenAt, bookId);
+      throw new Error("model down");
+    });
+    const { ensureBookResearch } = await import("@/lib/research/ensureBookResearch");
+    const { getBook } = await import("@/lib/book/meta");
+    const result = await ensureBookResearch(jobId);
+    expect(result.status).toBe("running");
+    const book = getBook(bookId);
+    expect(book?.researchError).toBeNull();
+    expect(book?.researchStartedAt).toBe(stolenAt);
+  });
 });

@@ -37,6 +37,7 @@ export async function ensureBookResearch(
   if (status === "running") return { status: "running" };
 
   const staleBefore = new Date(now.getTime() - RESEARCH_LOCK_MS).toISOString();
+  const lockAt = now.toISOString();
   const lock = db
     .prepare(
       `UPDATE books
@@ -45,7 +46,7 @@ export async function ensureBookResearch(
          AND researched_at IS NULL
          AND (research_started_at IS NULL OR research_started_at <= ?)`,
     )
-    .run(now.toISOString(), book.id, staleBefore);
+    .run(lockAt, book.id, staleBefore);
   if (lock.changes === 0) return { status: "running" };
 
   try {
@@ -58,18 +59,34 @@ export async function ensureBookResearch(
       fullText: chapters.map((chapter) => chapter.text).join("\n\n"),
     });
     const assigned = assignVoices(map.characters, null);
+    const saved = db
+      .prepare(
+        `UPDATE books
+         SET researched_at = ?, research_mode = ?, research_started_at = NULL, research_error = NULL
+         WHERE id = ? AND research_started_at = ?`,
+      )
+      .run(now.toISOString(), map.mode, book.id, lockAt);
+    if (saved.changes === 0) {
+      const current = getBook(book.id);
+      if (current?.researchedAt) return readyResult(book.id, current.researchMode);
+      return { status: "running" };
+    }
     saveCharacterMaps(book.id, assigned, map.mode);
-    db.prepare(
-      `UPDATE books
-       SET researched_at = ?, research_mode = ?, research_started_at = NULL, research_error = NULL
-       WHERE id = ?`,
-    ).run(now.toISOString(), map.mode, book.id);
     return readyResult(book.id, map.mode);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    db.prepare(
-      `UPDATE books SET research_started_at = NULL, research_error = ? WHERE id = ?`,
-    ).run(message, book.id);
+    const failed = db
+      .prepare(
+        `UPDATE books
+         SET research_started_at = NULL, research_error = ?
+         WHERE id = ? AND research_started_at = ? AND researched_at IS NULL`,
+      )
+      .run(message, book.id, lockAt);
+    if (failed.changes === 0) {
+      const current = getBook(book.id);
+      if (current?.researchedAt) return readyResult(book.id, current.researchMode);
+      return { status: "running" };
+    }
     return { status: "failed", error: message };
   }
 }
