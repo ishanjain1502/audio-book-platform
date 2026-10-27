@@ -5,6 +5,13 @@ CREATE TABLE IF NOT EXISTS books (
   fingerprint TEXT UNIQUE NOT NULL,
   page_count INTEGER,
   word_count INTEGER,
+  pdf_object_key TEXT,
+  pdf_access_url TEXT,
+  pdf_uploaded_at TEXT,
+  researched_at TEXT,
+  research_mode TEXT,
+  research_started_at TEXT,
+  research_error TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
