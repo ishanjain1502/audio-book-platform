@@ -5,8 +5,21 @@
       "name": "Debug job worker",
       "type": "node",
       "request": "launch",
-      "runtimeArgs": ["--import", "tsx", "--inspect-brk"],
-      "args": ["${workspaceFolder}/scripts/run-job.ts", "${input:jobId}"],
+      "program": "${workspaceFolder}/scripts/run-job.ts",
+      "args": ["${input:jobId}"],
+      "runtimeArgs": ["--import", "tsx"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "Debug job 11 (reference audio failure)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/run-job.ts",
+      "args": ["11"],
+      "runtimeArgs": ["--import", "tsx"],
       "cwd": "${workspaceFolder}",
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal",
@@ -17,7 +30,8 @@
     {
       "id": "jobId",
       "type": "promptString",
-      "description": "Job ID (folder under src/data/jobs/)"
+      "description": "Job ID (folder under src/data/jobs/)",
+      "default": "11"
     }
   ]
 }

@@ -1,4 +1,5 @@
 import fs from "fs";
+import { logFishRequest } from "@/lib/fish/requestLog";
 import { FatalFishError } from "@/lib/fish/retry";
 
 function fishBaseUrl(): string {
@@ -29,8 +30,20 @@ export async function cloneVoiceFromFile(
     body: form,
   });
 
+  const responseText = res.ok ? null : await res.text();
+  logFishRequest({
+    method: "POST",
+    path: "/v1/references/add",
+    reference_id: referenceId,
+    text: transcript,
+    audio_bytes: fileBuffer.length,
+    filename: filePath.endsWith(".wav") ? "sample.wav" : "sample.mp3",
+    status: res.status,
+    response: responseText,
+  });
+
   if (!res.ok) {
-    throw new FatalFishError(await res.text());
+    throw new FatalFishError(responseText ?? "");
   }
   return referenceId;
 }

@@ -8,6 +8,7 @@ import {
   DRAMA3_MODEL,
   MAX_ANNOTATED_CHARS,
 } from "@/lib/fish/constants";
+import { logFishRequest, voiceSlots } from "@/lib/fish/requestLog";
 import {
   FatalFishError,
   RetryableError,
@@ -56,11 +57,22 @@ export async function synthesize(input: {
           },
           body: JSON.stringify(body),
         });
+        const responseText = res.ok ? null : await res.text();
+        logFishRequest({
+          method: "POST",
+          path: "/v1/tts",
+          model,
+          format: body.format,
+          text: body.text,
+          reference_id: voiceSlots(body.reference_id),
+          status: res.status,
+          response: responseText,
+        });
         if (res.status === 429 || res.status >= 500) {
-          throw new RetryableError(res.status, await res.text());
+          throw new RetryableError(res.status, responseText ?? "");
         }
         if (!res.ok) {
-          throw new FatalFishError(await res.text());
+          throw new FatalFishError(responseText ?? "");
         }
         return Buffer.from(await res.arrayBuffer());
       },
