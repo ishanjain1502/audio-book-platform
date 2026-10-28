@@ -71,13 +71,13 @@ export default function Home() {
             hint="Text-based PDF required"
           />
 
-          <FileDropzone
+          {/* <FileDropzone
             label="Narrator voice sample (optional)"
             accept="audio/*"
             file={voice}
             onFile={setVoice}
             hint="15–20 seconds of clear speech"
-          />
+          /> */}
 
           {error && <p className="text-sm text-semantic-error">{error}</p>}
 
