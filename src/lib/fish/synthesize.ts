@@ -1,5 +1,9 @@
 import { concatMp3Buffers } from "@/lib/audio/stitch";
 import {
+  CompactRequestError,
+  compactFishRequest,
+} from "@/lib/fish/compactRequest";
+import {
   DEFAULT_FALLBACK_MODEL,
   DRAMA3_MODEL,
   MAX_ANNOTATED_CHARS,
@@ -35,8 +39,14 @@ export async function synthesize(input: {
   const buffers: Buffer[] = [];
 
   for (const chunk of chunks) {
+    const compacted = compactFishRequest(chunk, input.referenceIds);
     const buf = await retryWithBackoff(
       async () => {
+        const body = {
+          text: compacted.text,
+          reference_id: compacted.referenceIds,
+          format: "mp3",
+        };
         const res = await fetch(`${fishBaseUrl()}/v1/tts`, {
           method: "POST",
           headers: {
@@ -44,11 +54,7 @@ export async function synthesize(input: {
             "Content-Type": "application/json",
             model,
           },
-          body: JSON.stringify({
-            text: chunk,
-            reference_id: input.referenceIds,
-            format: "mp3",
-          }),
+          body: JSON.stringify(body),
         });
         if (res.status === 429 || res.status >= 500) {
           throw new RetryableError(res.status, await res.text());
@@ -72,7 +78,8 @@ export async function synthesizeWithFallback(input: {
 }): Promise<Buffer> {
   try {
     return await synthesize({ ...input, model: DRAMA3_MODEL });
-  } catch {
+  } catch (err) {
+    if (err instanceof CompactRequestError) throw err;
     const fallback =
       process.env.FISH_FALLBACK_MODEL ?? DEFAULT_FALLBACK_MODEL;
     return synthesize({ ...input, model: fallback });
