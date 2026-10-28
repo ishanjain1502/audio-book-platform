@@ -1,7 +1,8 @@
 /** Pinned from https://docs.fish.audio/features/text-to-speech/drama-3 (2026-03-24). */
 
-export const DRAMA3_MODEL = "drama-3";
 export const DEFAULT_FALLBACK_MODEL = "s2.1-pro";
+// export const DRAMA3_MODEL = "drama-3";
+export const DRAMA3_MODEL = DEFAULT_FALLBACK_MODEL;
 export const MAX_SPEAKERS = 16;
 export const MAX_ANNOTATED_CHARS = 2000;
 
