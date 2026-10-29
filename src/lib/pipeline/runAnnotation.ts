@@ -43,8 +43,9 @@ export async function runAnnotation(
   };
 
   if (!job.book_id) {
-    setJobStatus(jobId, "failed", "Missing book_id");
-    return;
+    const message = "Missing book_id";
+    setJobStatus(jobId, "failed", message);
+    throw new Error(message);
   }
 
   const log = createJobLogger(jobId);
@@ -53,9 +54,10 @@ export async function runAnnotation(
   try {
     const assigned = loadCharacterMaps(job.book_id);
     if (!assigned) {
-      setJobStatus(jobId, "failed", "Character map is missing");
-      report({ status: "failed", error: "Character map is missing" });
-      return;
+      const message = "Character map is missing";
+      setJobStatus(jobId, "failed", message);
+      report({ status: "failed", error: message });
+      throw new Error(message);
     }
 
     const chapters = db

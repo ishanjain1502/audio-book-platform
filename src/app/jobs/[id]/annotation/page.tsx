@@ -194,6 +194,7 @@ export default function AnnotationPage({
 
   const canConfirm =
     status === "awaiting_annotation" &&
+    sections.length > 0 &&
     sections.every((section) => section.reviewed) &&
     !saving;
 

@@ -55,8 +55,9 @@ export async function runSynthesis(
   };
 
   if (!job.book_id) {
-    setJobStatus(jobId, "failed", "Missing book_id");
-    return;
+    const message = "Missing book_id";
+    setJobStatus(jobId, "failed", message);
+    throw new Error(message);
   }
 
   setJobStatus(jobId, "processing");
@@ -85,8 +86,9 @@ export async function runSynthesis(
     }
 
     if (!assigned) {
-      setJobStatus(jobId, "failed", "Character map is missing");
-      return;
+      const message = "Character map is missing";
+      setJobStatus(jobId, "failed", message);
+      throw new Error(message);
     }
 
     if (narratorVoiceId) {

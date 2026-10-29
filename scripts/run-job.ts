@@ -123,8 +123,11 @@ async function main() {
     }
 
     if (mode !== "annotate") {
+      const jobRow = db
+        .prepare("SELECT status FROM jobs WHERE id = ?")
+        .get(jobId) as { status: string };
       const done = readJobStatus(jobId);
-      if (done) {
+      if (done && jobRow.status === "done") {
         writeJobStatus({
           ...done,
           status: "done",
