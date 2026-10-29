@@ -1,10 +1,40 @@
 export type Chapter = { title: string; rawText: string };
 
-const CHAPTER_HEADING_RE =
-  /^(?:chapter|CHAPTER)\s+(\d+|[IVXLC]+)\b[^\n]*$/im;
+export type StoryHeadingKind = "prologue" | "chapter" | "epilogue";
+export type ExcludedHeadingKind = "introduction" | "preface" | "foreword";
+
+const SINGLE_WORD_HEADING =
+  /^(prologue|epilogue|introduction|preface|foreword)(?:\s+to\b.*|\s*[:.—–-]\s*\S.*)?\.?$/i;
+
+const CHAPTER_NUMBER_HEADING = /^chapter\s+(?:\d+|[IVXLC]+)\b.*$/i;
+
+const CHAPTER_WORD_HEADING =
+  /^chapter\s+(?:(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-(?:one|two|three|four|five|six|seven|eight|nine)|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|one|two|three|four|five|six|seven|eight|nine)\b(?:\s*[:.—–-]\s*\S.*)?$/i;
+
+export function storyHeadingKind(line: string): StoryHeadingKind | null {
+  const text = line.trim();
+  const single = text.match(SINGLE_WORD_HEADING);
+  if (single) {
+    const word = single[1].toLowerCase();
+    if (word === "prologue") return "prologue";
+    if (word === "epilogue") return "epilogue";
+    return null;
+  }
+  if (CHAPTER_NUMBER_HEADING.test(text) || CHAPTER_WORD_HEADING.test(text)) return "chapter";
+  return null;
+}
+
+export function excludedHeadingKind(line: string): ExcludedHeadingKind | null {
+  const text = line.trim();
+  const single = text.match(SINGLE_WORD_HEADING);
+  if (!single) return null;
+  const word = single[1].toLowerCase();
+  if (word === "introduction" || word === "preface" || word === "foreword") return word;
+  return null;
+}
 
 export function isChapterHeading(line: string): boolean {
-  return CHAPTER_HEADING_RE.test(line.trim());
+  return storyHeadingKind(line) !== null;
 }
 
 const SECTION_WORDS = 3000;
