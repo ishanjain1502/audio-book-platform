@@ -1,6 +1,6 @@
 /**
  * Run audiobook job outside Next.js (SQLite + long work stay off the dev server).
- * Usage: npx tsx scripts/run-job.ts <jobId>
+ * Usage: npx tsx scripts/run-job.ts <jobId> [full|annotate|synthesize]
  */
 import { config } from "dotenv";
 import fs from "fs";
@@ -13,16 +13,37 @@ import {
   readJobStatus,
   writeJobStatus,
 } from "../src/lib/jobs/statusFile";
-import { runJob } from "../src/lib/pipeline/runJob";
+import { runJob, type JobProgressPatch } from "../src/lib/pipeline/runJob";
+import { runAnnotation } from "../src/lib/pipeline/runAnnotation";
+import { runSynthesis } from "../src/lib/pipeline/runSynthesis";
 import { closeDb } from "../src/lib/db/client";
 import { prepareJobFromUpload } from "../src/lib/pipeline/prepareUpload";
 import { jobIsPrepared } from "../src/lib/pipeline/jobReady";
 import { createJobLogger } from "../src/lib/jobs/jobLog";
 
+type RunMode = "full" | "annotate" | "synthesize";
+
+function parseMode(raw: string | undefined): RunMode | null {
+  const mode = raw ?? "full";
+  if (mode === "full" || mode === "annotate" || mode === "synthesize") {
+    return mode;
+  }
+  return null;
+}
+
 async function main() {
   const jobId = Number(process.argv[2]);
+  const mode = parseMode(process.argv[3]);
   if (!Number.isFinite(jobId)) {
-    console.error("Usage: npx tsx scripts/run-job.ts <jobId>");
+    console.error(
+      "Usage: npx tsx scripts/run-job.ts <jobId> [full|annotate|synthesize]",
+    );
+    process.exit(1);
+  }
+  if (mode === null) {
+    console.error(
+      "Usage: npx tsx scripts/run-job.ts <jobId> [full|annotate|synthesize]",
+    );
     process.exit(1);
   }
 
@@ -76,7 +97,7 @@ async function main() {
       .prepare("SELECT idx, title FROM chapters WHERE job_id = ? ORDER BY idx")
       .all(jobId) as { idx: number; title: string }[];
     const base = readJobStatus(jobId);
-    if (base) {
+    if (base && mode !== "annotate") {
       writeJobStatus({
         ...base,
         status: "processing",
@@ -88,19 +109,29 @@ async function main() {
       });
     }
 
-    await runJob(jobId, (patch) => {
+    const onProgress = (patch: JobProgressPatch) => {
       const current = readJobStatus(jobId);
       if (current) writeJobStatus({ ...current, ...patch });
-    });
+    };
 
-    const done = readJobStatus(jobId);
-    if (done) {
-      writeJobStatus({
-        ...done,
-        status: "done",
-        progress: 100,
-        chapters: done.chapters.map((c) => ({ ...c, ready: true })),
-      });
+    if (mode === "full") {
+      await runJob(jobId, onProgress);
+    } else if (mode === "annotate") {
+      await runAnnotation(jobId, onProgress);
+    } else {
+      await runSynthesis(jobId, onProgress);
+    }
+
+    if (mode !== "annotate") {
+      const done = readJobStatus(jobId);
+      if (done) {
+        writeJobStatus({
+          ...done,
+          status: "done",
+          progress: 100,
+          chapters: done.chapters.map((c) => ({ ...c, ready: true })),
+        });
+      }
     }
     console.log(`Job ${jobId} finished`);
   } catch (err) {
