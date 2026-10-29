@@ -237,8 +237,8 @@ it("keeps text with no story heading and still drops a preface section", () => {
     line(1, 200, "After."),
   ]);
   expect(result.storyStart).toBe("none");
-  expect(result.kept.map((item) => item.text)).toEqual(["Hello.", "After."]);
-  expect(result.excluded.map((item) => item.reason)).toEqual(["preface", "preface"]);
+  expect(result.kept.map((item) => item.text)).toEqual(["Hello."]);
+  expect(result.excluded.map((item) => item.reason)).toEqual(["preface", "preface", "preface"]);
 });
 
 it("joins kept pages with one blank line and skips an empty gap", () => {

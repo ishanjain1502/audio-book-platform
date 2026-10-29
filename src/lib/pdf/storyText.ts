@@ -71,7 +71,6 @@ export function applyStoryPolicy(lines: CollectedLine[]): {
   const kept: CollectedLine[] = [];
   const excluded: { line: CollectedLine; reason: ExclusionReason }[] = [];
   let skipping: "introduction" | "preface" | "foreword" | null = null;
-  let skippingUntilRecognized = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (storyStartIndex >= 0 && i < storyStartIndex) {
@@ -82,20 +81,11 @@ export function applyStoryPolicy(lines: CollectedLine[]): {
     const recognized = excludedKind !== null || storyHeadingKind(line.text) !== null;
     if (skipping && !recognized) {
       excluded.push({ line, reason: skipping });
-      if (!skippingUntilRecognized) {
-        skipping = null;
-      }
       continue;
     }
     skipping = null;
-    skippingUntilRecognized = false;
     if (excludedKind) {
       skipping = excludedKind;
-      skippingUntilRecognized = lines.some(
-        (candidate, index) =>
-          index > i &&
-          (excludedHeadingKind(candidate.text) !== null || storyHeadingKind(candidate.text) !== null),
-      );
       excluded.push({ line, reason: excludedKind });
       continue;
     }
