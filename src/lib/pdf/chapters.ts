@@ -75,6 +75,13 @@ export function splitChapters(fullText: string): Chapter[] {
   }
 
   const chapters: Chapter[] = [];
+  const firstHeadingIndex = headingIndices[0].index;
+  if (firstHeadingIndex > 0) {
+    const prefix = lines.slice(0, firstHeadingIndex).join("\n").trim();
+    if (prefix) {
+      chapters.push(...splitByFixedWords(prefix));
+    }
+  }
   for (let h = 0; h < headingIndices.length; h++) {
     const start = headingIndices[h].index;
     const end =
