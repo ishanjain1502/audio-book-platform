@@ -2,6 +2,11 @@ export type Chapter = { title: string; rawText: string };
 
 const CHAPTER_HEADING_RE =
   /^(?:chapter|CHAPTER)\s+(\d+|[IVXLC]+)\b[^\n]*$/im;
+
+export function isChapterHeading(line: string): boolean {
+  return CHAPTER_HEADING_RE.test(line.trim());
+}
+
 const SECTION_WORDS = 3000;
 
 function splitParagraphs(text: string): string[] {
@@ -30,7 +35,7 @@ export function splitChapters(fullText: string): Chapter[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (CHAPTER_HEADING_RE.test(line)) {
+    if (isChapterHeading(line)) {
       headingIndices.push({ index: i, title: line });
     }
   }

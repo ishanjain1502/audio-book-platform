@@ -1,4 +1,6 @@
 import pdfParse from "pdf-parse";
+import { renderPdfPage } from "@/lib/pdf/pageText";
+import { stripNonStoryText } from "@/lib/pdf/storyText";
 
 export class PdfExtractError extends Error {
   constructor(
@@ -25,7 +27,7 @@ export type PdfExtractResult = {
 export async function extractPdfText(buffer: Buffer): Promise<PdfExtractResult> {
   let data: Awaited<ReturnType<typeof pdfParse>>;
   try {
-    data = await pdfParse(buffer);
+    data = await pdfParse(buffer, { pagerender: renderPdfPage });
   } catch {
     throw new PdfExtractError(
       "No text layer found. Scanned PDFs are not supported yet.",
@@ -33,7 +35,7 @@ export async function extractPdfText(buffer: Buffer): Promise<PdfExtractResult> 
     );
   }
 
-  const text = (data.text ?? "").replace(/\r\n/g, "\n").trim();
+  const text = stripNonStoryText(data.text ?? "");
   if (!text) {
     throw new PdfExtractError(
       "No text layer found. Scanned PDFs are not supported yet.",
