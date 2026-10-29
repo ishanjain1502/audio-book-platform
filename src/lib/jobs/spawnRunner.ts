@@ -3,9 +3,13 @@ import path from "path";
 import { getDb } from "@/lib/db/client";
 import { readJobStatus, writeJobStatus } from "@/lib/jobs/statusFile";
 
-export function spawnJobRunner(jobId: number): void {
+export function spawnJobRunner(jobId: number, mode?: "annotate" | "synthesize"): void {
   const script = path.join(process.cwd(), "scripts", "run-job.ts");
-  const child = spawn("npx", ["tsx", script, String(jobId)], {
+  const args = ["tsx", script, String(jobId)];
+  if (mode !== undefined) {
+    args.push(mode);
+  }
+  const child = spawn("npx", args, {
     cwd: process.cwd(),
     detached: true,
     stdio: "inherit",

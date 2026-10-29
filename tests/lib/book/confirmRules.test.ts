@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canConfirm } from "@/lib/book/confirmRules";
+import { canConfirm, canGenerateAudiobook } from "@/lib/book/confirmRules";
 
 const ready = {
   jobStatus: "awaiting_review",
@@ -36,6 +36,37 @@ describe("canConfirm", () => {
     expect(canConfirm({ ...ready, researchedAt: null })).toMatchObject({
       ok: false,
       reason: "Book research is not ready",
+    });
+  });
+});
+
+describe("canGenerateAudiobook", () => {
+  it("accepts audio confirm only when annotation is finished and every section is checked", () => {
+    const base = {
+      jobStatus: "awaiting_annotation",
+      title: "  Dune  ",
+      author: "   ",
+      pageCount: 12,
+      sectionsComplete: true,
+      allReviewed: true,
+    };
+    expect(canGenerateAudiobook(base)).toEqual({
+      ok: true,
+      title: "Dune",
+      author: null,
+      pageCount: 12,
+    });
+    expect(canGenerateAudiobook({ ...base, jobStatus: "awaiting_review" })).toMatchObject({
+      ok: false,
+      reason: "Annotation is not ready",
+    });
+    expect(canGenerateAudiobook({ ...base, sectionsComplete: false })).toMatchObject({
+      ok: false,
+      reason: "Annotation is not ready",
+    });
+    expect(canGenerateAudiobook({ ...base, allReviewed: false })).toMatchObject({
+      ok: false,
+      reason: "Every section must be checked",
     });
   });
 });

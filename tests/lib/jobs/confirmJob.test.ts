@@ -53,23 +53,34 @@ describe("confirmJob", () => {
   }
 
   it("queues a researched review job and spawns once", async () => {
-    const jobId = await seed("awaiting_review", true);
-    const spawned: number[] = [];
-    const { confirmJob } = await import("@/lib/jobs/confirmJob");
+    const jobId = await seed("awaiting_annotation", true);
     const { getDb } = await import("@/lib/db/client");
+    getDb()
+      .prepare(
+        "INSERT INTO chapters (job_id, idx, title, text, reviewed) VALUES (?, 0, ?, ?, 1)",
+      )
+      .run(jobId, "Chapter I", "Hello.");
+    getDb()
+      .prepare(
+        `INSERT INTO segments (job_id, chapter_idx, paragraph_idx, annotated_text)
+         VALUES (?, 0, 0, ?)`,
+      )
+      .run(jobId, "<|speaker:0|>Hello.");
+    const spawned: string[] = [];
+    const { confirmJob } = await import("@/lib/jobs/confirmJob");
     const first = confirmJob(
       jobId,
       { title: "Original", author: "Ada", pageCount: 10 },
-      (id) => spawned.push(id),
+      (id, mode) => spawned.push(`${id}:${mode}`),
     );
     const second = confirmJob(
       jobId,
       { title: "Original", author: "Ada", pageCount: 10 },
-      (id) => spawned.push(id),
+      (id, mode) => spawned.push(`${id}:${mode}`),
     );
     expect(first).toEqual({ ok: true });
     expect(second).toMatchObject({ ok: false, status: 409 });
-    expect(spawned).toEqual([jobId]);
+    expect(spawned).toEqual([`${jobId}:synthesize`]);
     const row = getDb().prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as {
       status: string;
     };
@@ -89,7 +100,7 @@ describe("confirmJob", () => {
     expect(result).toMatchObject({
       ok: false,
       status: 409,
-      error: "Book research is not ready",
+      error: "Annotation is not ready",
     });
   });
 });
