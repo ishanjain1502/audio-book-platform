@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { pageTextFromItems, renderPdfPage } from "@/lib/pdf/pageText";
+import {
+  createPageCollector,
+  pageLinesFromItems,
+  pageTextFromItems,
+  renderPdfPage,
+} from "@/lib/pdf/pageText";
 import { stripNonStoryText } from "@/lib/pdf/storyText";
 
 describe("pageTextFromItems", () => {
@@ -42,6 +47,55 @@ describe("pageTextFromItems", () => {
 
     expect(text).toBe("Hello world\nsecond line");
   });
+});
+
+it("keeps margin lines and page-number lines in reading order", () => {
+  const lines = pageLinesFromItems(
+    [
+      { str: "second line", x: 72, y: 400 },
+      { str: "world", x: 110, y: 500 },
+      { str: "Hello ", x: 72, y: 500 },
+      { str: "Running Title", x: 72, y: 960 },
+      { str: "17", x: 300, y: 40 },
+    ],
+    1000,
+  );
+  expect(lines.map((line) => line.text)).toEqual([
+    "Running Title",
+    "Hello world",
+    "second line",
+    "17",
+  ]);
+});
+
+it("records an empty page and a failed page without throwing", async () => {
+  const collector = createPageCollector();
+  await expect(
+    collector.render({
+      view: [0, 0, 600, 800],
+      getTextContent: async () => {
+        throw new Error("bad page");
+      },
+    }),
+  ).resolves.toBe("");
+  await collector.render({
+    view: [0, 0, 600, 0],
+    getTextContent: async () => ({ items: [] }),
+  });
+  await collector.render({
+    view: [0, 0, 600, 800],
+    getTextContent: async () => ({
+      items: [{ str: "Once upon a time", transform: [1, 0, 0, 1, 72, 400] }],
+    }),
+  });
+  expect(collector.pages).toEqual([
+    { page: 1, status: "failed" },
+    { page: 2, status: "empty" },
+    { page: 3, status: "ok" },
+  ]);
+  expect(collector.lines).toEqual([
+    { page: 3, y: 400, pageHeight: 800, text: "Once upon a time" },
+  ]);
 });
 
 describe("renderPdfPage", () => {
