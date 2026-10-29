@@ -11,7 +11,6 @@ import {
   excludePageArtifacts,
   filterStoryLines,
   joinStoryLines,
-  stripNonStoryText,
 } from "@/lib/pdf/storyText";
 
 function line(page: number, y: number, text: string): CollectedLine {
@@ -21,7 +20,7 @@ function line(page: number, y: number, text: string): CollectedLine {
 describe("pageTextFromItems", () => {
   const pageHeight = 1000;
 
-  it("drops lines in the top and bottom margin and keeps the story line", () => {
+  it("keeps the margin line, the story line, and the footer number", () => {
     const text = pageTextFromItems(
       [
         { str: "Running Title", x: 72, y: 960 },
@@ -31,10 +30,10 @@ describe("pageTextFromItems", () => {
       pageHeight,
     );
 
-    expect(text).toBe("Once upon a time");
+    expect(text).toBe("Running Title\nOnce upon a time\n42");
   });
 
-  it("drops a line that is only a page number even when it sits in the body", () => {
+  it("keeps a page-number line in the body", () => {
     const text = pageTextFromItems(
       [
         { str: "The story continues here.", x: 72, y: 500 },
@@ -43,7 +42,7 @@ describe("pageTextFromItems", () => {
       pageHeight,
     );
 
-    expect(text).toBe("The story continues here.");
+    expect(text).toBe("The story continues here.\n17");
   });
 
   it("joins fragments on the same line from left to right and reads lines from top to bottom", () => {
@@ -110,7 +109,7 @@ it("records an empty page and a failed page without throwing", async () => {
 });
 
 describe("renderPdfPage", () => {
-  it("reads positioned text items and drops the margin", async () => {
+  it("reads positioned text items and keeps the margin", async () => {
     const text = await renderPdfPage({
       view: [0, 0, 600, 800],
       getTextContent: async () => ({
@@ -122,7 +121,7 @@ describe("renderPdfPage", () => {
       }),
     });
 
-    expect(text).toBe("Once upon a time");
+    expect(text).toBe("Running Title\nOnce upon a time\n12");
   });
 });
 
@@ -255,43 +254,3 @@ it("filters artifacts before the story policy", () => {
   expect(result.excluded.every((item) => item.reason === "repeated-header")).toBe(true);
 });
 
-describe("stripNonStoryText", () => {
-  it("drops everything before the first chapter heading", () => {
-    const text = stripNonStoryText(
-      ["Copyright 2020", "All rights reserved", "", "Chapter 1", "It is a truth.", "", "Chapter 2", "More story."].join(
-        "\n",
-      ),
-    );
-
-    expect(text.startsWith("Chapter 1")).toBe(true);
-    expect(text).toContain("It is a truth.");
-    expect(text).toContain("Chapter 2");
-    expect(text).not.toContain("Copyright");
-    expect(text).not.toContain("All rights reserved");
-  });
-
-  it("keeps the text when there is no chapter heading", () => {
-    const text = stripNonStoryText("No headings here.\nJust the story.");
-    expect(text).toBe("No headings here.\nJust the story.");
-  });
-
-  it("drops a line repeated across three pages and keeps the story lines", () => {
-    const page = (body: string) => `Pride and Prejudice\n${body}`;
-    const text = stripNonStoryText(
-      [page("Chapter 1\nStory one."), page("Story two."), page("Story three.")].join("\n\n"),
-    );
-
-    expect(text).not.toContain("Pride and Prejudice");
-    expect(text).toContain("Chapter 1");
-    expect(text).toContain("Story one.");
-    expect(text).toContain("Story two.");
-    expect(text).toContain("Story three.");
-  });
-
-  it("keeps a line that repeats on only two pages", () => {
-    const text = stripNonStoryText("Yes.\nChapter 1\nFirst.\n\nYes.\nSecond.");
-    expect(text).toContain("Yes.");
-    expect(text).toContain("First.");
-    expect(text).toContain("Second.");
-  });
-});
