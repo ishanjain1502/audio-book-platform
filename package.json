@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "job:tail": "tsx scripts/tail-progress.ts"
+    "job:tail": "tsx scripts/tail-progress.ts",
+    "reset": "tsx scripts/reset.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1157.0",
