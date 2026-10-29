@@ -139,7 +139,7 @@ export default function ReviewPage({
     if (!id) return;
     setSaving(true);
     setError(null);
-    const res = await fetch(`/api/jobs/${id}/confirm`, {
+    const res = await fetch(`/api/jobs/${id}/annotate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -151,10 +151,10 @@ export default function ReviewPage({
     const body = (await res.json()) as { error?: string };
     setSaving(false);
     if (!res.ok) {
-      setError(body.error ?? "Could not start the audiobook");
+      setError(body.error ?? "Could not start annotation");
       return;
     }
-    router.push(`/jobs/${id}`);
+    router.push(`/jobs/${id}/annotation`);
   }
 
   const pageOk = Number.isInteger(Number(pageCount)) && Number(pageCount) >= 1;
@@ -238,7 +238,7 @@ export default function ReviewPage({
           ) : null}
           {error ? <p className="text-sm text-semantic-error">{error}</p> : null}
           <Button type="submit" disabled={!canConfirm}>
-            {saving ? "Starting…" : "Generate audiobook"}
+            {saving ? "Starting…" : "Review annotation"}
           </Button>
         </form>
       </GlassCard>
