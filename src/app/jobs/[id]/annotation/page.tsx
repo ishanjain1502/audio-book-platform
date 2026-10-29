@@ -211,12 +211,6 @@ export default function AnnotationPage({
         </GlassCard>
       ) : (
         <div className="space-y-6">
-          {typeof currentSection === "number" ? (
-            <p className="text-sm text-ink-muted">
-              Annotating section {currentSection}
-            </p>
-          ) : null}
-
           {status === "failed" ? (
             <GlassCard>
               <div className="space-y-3">
@@ -307,6 +301,12 @@ export default function AnnotationPage({
               </GlassCard>
             );
           })}
+
+          {typeof currentSection === "number" ? (
+            <p className="text-sm text-ink-muted">
+              Annotating section {currentSection}
+            </p>
+          ) : null}
 
           {error ? (
             <p className="text-sm text-semantic-error">{error}</p>
