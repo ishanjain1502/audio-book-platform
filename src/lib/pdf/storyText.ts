@@ -1,4 +1,4 @@
-import { isChapterHeading } from "@/lib/pdf/chapters";
+import { excludedHeadingKind, isChapterHeading, storyHeadingKind } from "@/lib/pdf/chapters";
 import type { CollectedLine } from "@/lib/pdf/pageText";
 
 const REPEATED_LINE_PAGES = 3;
@@ -52,6 +52,92 @@ export function excludePageArtifacts(lines: CollectedLine[]): {
     kept.push(line);
   }
   return { kept, excluded };
+}
+
+export type StoryStart = "prologue" | "chapter" | "none";
+
+export function applyStoryPolicy(lines: CollectedLine[]): {
+  kept: CollectedLine[];
+  excluded: { line: CollectedLine; reason: ExclusionReason }[];
+  storyStart: StoryStart;
+} {
+  const storyStartIndex = lines.findIndex((line) => {
+    const kind = storyHeadingKind(line.text);
+    return kind === "prologue" || kind === "chapter";
+  });
+  const startKind = storyStartIndex < 0 ? null : storyHeadingKind(lines[storyStartIndex].text);
+  const storyStart: StoryStart =
+    startKind === "prologue" ? "prologue" : startKind === "chapter" ? "chapter" : "none";
+  const kept: CollectedLine[] = [];
+  const excluded: { line: CollectedLine; reason: ExclusionReason }[] = [];
+  let skipping: "introduction" | "preface" | "foreword" | null = null;
+  let skippingUntilRecognized = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (storyStartIndex >= 0 && i < storyStartIndex) {
+      excluded.push({ line, reason: "front-matter" });
+      continue;
+    }
+    const excludedKind = excludedHeadingKind(line.text);
+    const recognized = excludedKind !== null || storyHeadingKind(line.text) !== null;
+    if (skipping && !recognized) {
+      excluded.push({ line, reason: skipping });
+      if (!skippingUntilRecognized) {
+        skipping = null;
+      }
+      continue;
+    }
+    skipping = null;
+    skippingUntilRecognized = false;
+    if (excludedKind) {
+      skipping = excludedKind;
+      skippingUntilRecognized = lines.some(
+        (candidate, index) =>
+          index > i &&
+          (excludedHeadingKind(candidate.text) !== null || storyHeadingKind(candidate.text) !== null),
+      );
+      excluded.push({ line, reason: excludedKind });
+      continue;
+    }
+    kept.push(line);
+  }
+  return { kept, excluded, storyStart };
+}
+
+export function joinStoryLines(lines: CollectedLine[]): string {
+  if (lines.length === 0) return "";
+  const pages: string[][] = [];
+  let currentPage = lines[0].page;
+  let bucket: string[] = [];
+  for (const line of lines) {
+    if (line.page !== currentPage) {
+      pages.push(bucket);
+      bucket = [];
+      currentPage = line.page;
+    }
+    bucket.push(line.text);
+  }
+  pages.push(bucket);
+  return pages
+    .filter((page) => page.length > 0)
+    .map((page) => page.join("\n"))
+    .join("\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function filterStoryLines(lines: CollectedLine[]): {
+  kept: CollectedLine[];
+  excluded: { line: CollectedLine; reason: ExclusionReason }[];
+  storyStart: StoryStart;
+} {
+  const artifacts = excludePageArtifacts(lines);
+  const story = applyStoryPolicy(artifacts.kept);
+  return {
+    kept: story.kept,
+    excluded: [...artifacts.excluded, ...story.excluded],
+    storyStart: story.storyStart,
+  };
 }
 
 export function stripNonStoryText(text: string): string {

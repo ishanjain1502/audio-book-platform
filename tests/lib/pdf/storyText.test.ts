@@ -6,7 +6,13 @@ import {
   renderPdfPage,
 } from "@/lib/pdf/pageText";
 import type { CollectedLine } from "@/lib/pdf/pageText";
-import { excludePageArtifacts, stripNonStoryText } from "@/lib/pdf/storyText";
+import {
+  applyStoryPolicy,
+  excludePageArtifacts,
+  filterStoryLines,
+  joinStoryLines,
+  stripNonStoryText,
+} from "@/lib/pdf/storyText";
 
 function line(page: number, y: number, text: string): CollectedLine {
   return { page, y, pageHeight: 1000, text };
@@ -168,6 +174,85 @@ describe("excludePageArtifacts", () => {
     ]);
     expect(result.excluded).toEqual([]);
   });
+});
+
+it("keeps a prologue and drops the preface that follows it", () => {
+  const lines = [
+    line(1, 500, "Copyright 2020"),
+    line(1, 400, "Preface"),
+    line(1, 300, "A note."),
+    line(2, 500, "Prologue"),
+    line(2, 400, "Once."),
+    line(3, 500, "Preface"),
+    line(3, 400, "Later note."),
+    line(4, 500, "Chapter 1"),
+    line(4, 400, "Body."),
+  ];
+  const result = applyStoryPolicy(lines);
+  expect(result.storyStart).toBe("prologue");
+  expect(result.kept.map((item) => item.text)).toEqual(["Prologue", "Once.", "Chapter 1", "Body."]);
+  expect(result.excluded.map((item) => item.reason)).toEqual([
+    "front-matter",
+    "front-matter",
+    "front-matter",
+    "preface",
+    "preface",
+  ]);
+});
+
+it("drops an introduction and a foreword after the story starts", () => {
+  const lines = [
+    line(1, 500, "Chapter One"),
+    line(1, 400, "Body."),
+    line(1, 300, "About the Author"),
+    line(2, 500, "Introduction: A Note"),
+    line(2, 400, "Skip me."),
+    line(3, 500, "Foreword"),
+    line(3, 400, "Skip this too."),
+    line(4, 500, "Epilogue"),
+    line(4, 400, "After."),
+  ];
+  const result = applyStoryPolicy(lines);
+  expect(result.storyStart).toBe("chapter");
+  expect(result.kept.map((item) => item.text)).toEqual([
+    "Chapter One",
+    "Body.",
+    "About the Author",
+    "Epilogue",
+    "After.",
+  ]);
+  expect(result.excluded.map((item) => item.reason)).toEqual([
+    "introduction",
+    "introduction",
+    "foreword",
+    "foreword",
+  ]);
+});
+
+it("keeps text with no story heading and still drops a preface section", () => {
+  const result = applyStoryPolicy([
+    line(1, 500, "Hello."),
+    line(1, 400, "Preface to the Second Edition"),
+    line(1, 300, "Not the story."),
+    line(1, 200, "After."),
+  ]);
+  expect(result.storyStart).toBe("none");
+  expect(result.kept.map((item) => item.text)).toEqual(["Hello.", "After."]);
+  expect(result.excluded.map((item) => item.reason)).toEqual(["preface", "preface"]);
+});
+
+it("joins kept pages with one blank line and skips an empty gap", () => {
+  expect(joinStoryLines([line(1, 500, "Alpha"), line(3, 500, "Beta")])).toBe("Alpha\n\nBeta");
+});
+
+it("filters artifacts before the story policy", () => {
+  const lines = [1, 2, 3].flatMap((page) => [
+    line(page, 960, "Running Title"),
+    line(page, 500, page === 1 ? "Chapter 1" : "Body " + page),
+  ]);
+  const result = filterStoryLines(lines);
+  expect(result.kept.map((item) => item.text)).toEqual(["Chapter 1", "Body 2", "Body 3"]);
+  expect(result.excluded.every((item) => item.reason === "repeated-header")).toBe(true);
 });
 
 describe("stripNonStoryText", () => {
