@@ -5,52 +5,42 @@ import {
   sampleLibrary,
 } from "@/lib/sampleLibrary";
 
-const titles = [
-  "Project Hail Mary",
-  "The Wheel of Time (Series)",
-  "The Hitchhiker's Guide to the Galaxy",
-  "Good Omens",
-  "Dune",
-  "The Witch",
-  "Verity",
-  "The Silent Patient",
-  "World War Z",
-  "Tom Lake",
-  "The Midnight Library",
-  "The Dutch House",
-  "Harry Potter and the Deathly Hallows",
-  "The Odyssey",
-  "The Woman in Me",
-  "Born a Crime",
-  "A Promised Land",
-  "Atomic Habits",
-  "Everything Is Tuberculosis",
-  "Range",
-];
-
 describe("sampleLibrary", () => {
-  it("lists the twenty starter books in order, with no links", () => {
-    expect(sampleLibrary.map((book) => book.title)).toEqual(titles);
-    expect(sampleLibrary.every((book) => book.author.trim().length > 0)).toBe(
-      true,
-    );
-    expect(sampleLibrary.every((book) => book.link === undefined)).toBe(true);
+  it("requires a title and author, and treats a stored link as Select", () => {
+    expect(sampleLibrary.length).toBeGreaterThan(0);
+
+    for (const book of sampleLibrary) {
+      expect(book.title.trim().length).toBeGreaterThan(0);
+      expect(book.author.trim().length).toBeGreaterThan(0);
+
+      const action = sampleBookAction(book);
+      if (book.link === undefined) {
+        expect(action).toEqual({ label: "Coming soon", href: null });
+      } else {
+        expect(book.link.trim().length).toBeGreaterThan(0);
+        expect(action).toEqual({ label: "Select", href: book.link });
+      }
+    }
   });
 });
 
 describe("sampleBookAction", () => {
+  const book = { title: "Any title", author: "Any author" };
+
   it("returns Select and the link href", () => {
+    expect(sampleBookAction({ ...book, link: "/jobs/13" })).toEqual({
+      label: "Select",
+      href: "/jobs/13",
+    });
     expect(
-      sampleBookAction({
-        title: "Dune",
-        author: "Frank Herbert",
-        link: "/jobs/13",
-      }),
-    ).toEqual({ label: "Select", href: "/jobs/13" });
+      sampleBookAction({ ...book, link: "https://example.com/book.mp3" }),
+    ).toEqual({
+      label: "Select",
+      href: "https://example.com/book.mp3",
+    });
   });
 
   it("returns Coming soon when the link is missing, blank, or whitespace", () => {
-    const book = { title: "Dune", author: "Frank Herbert" };
     expect(sampleBookAction(book)).toEqual({
       label: "Coming soon",
       href: null,

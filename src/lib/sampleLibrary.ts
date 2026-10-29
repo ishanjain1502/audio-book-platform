@@ -37,6 +37,8 @@ export function coverFieldsFromOpenLibraryDoc(
 
 export const sampleLibrary: SampleBook[] = [
   // SAMPLE_LIBRARY_START
+  // the egg by Andy Weir
+  { title: "The Egg", author: "Andy Weir", image: "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1431492647i/17563539.jpg"},
   { title: "Project Hail Mary", author: "Andy Weir", image: "https://covers.openlibrary.org/b/id/11200092-L.jpg" },
   { title: "The Wheel of Time (Series)", author: "Robert Jordan", image: "https://covers.openlibrary.org/b/id/10843875-L.jpg" },
   { title: "The Hitchhiker's Guide to the Galaxy", author: "Douglas Adams", image: "https://covers.openlibrary.org/b/id/12986869-L.jpg" },
