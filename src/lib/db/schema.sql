@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS chapters (
   idx INTEGER,
   title TEXT,
   text TEXT,
-  speaker_count INTEGER
+  speaker_count INTEGER,
+  reviewed INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS segments (

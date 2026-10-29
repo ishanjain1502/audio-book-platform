@@ -31,11 +31,23 @@ export function applyBookColumnMigrations(database: Database.Database): void {
   }
 }
 
+export function applyChapterColumnMigrations(database: Database.Database): void {
+  const existing = new Set(
+    (database.prepare("PRAGMA table_info(chapters)").all() as { name: string }[]).map(
+      (column) => column.name,
+    ),
+  );
+  if (!existing.has("reviewed")) {
+    database.exec("ALTER TABLE chapters ADD COLUMN reviewed INTEGER NOT NULL DEFAULT 0");
+  }
+}
+
 function ensureSchema(database: Database.Database): void {
   const schemaPath = path.join(process.cwd(), "src/lib/db/schema.sql");
   const sql = fs.readFileSync(schemaPath, "utf8");
   database.exec(sql);
   applyBookColumnMigrations(database);
+  applyChapterColumnMigrations(database);
 }
 
 /** Closes the singleton (for tests). */
