@@ -5,7 +5,12 @@ import {
   pageTextFromItems,
   renderPdfPage,
 } from "@/lib/pdf/pageText";
-import { stripNonStoryText } from "@/lib/pdf/storyText";
+import type { CollectedLine } from "@/lib/pdf/pageText";
+import { excludePageArtifacts, stripNonStoryText } from "@/lib/pdf/storyText";
+
+function line(page: number, y: number, text: string): CollectedLine {
+  return { page, y, pageHeight: 1000, text };
+}
 
 describe("pageTextFromItems", () => {
   const pageHeight = 1000;
@@ -112,6 +117,56 @@ describe("renderPdfPage", () => {
     });
 
     expect(text).toBe("Once upon a time");
+  });
+});
+
+describe("excludePageArtifacts", () => {
+  it("drops a margin header repeated on three pages and keeps the body", () => {
+    const lines = [1, 2, 3].flatMap((page) => [
+      line(page, 960, "Running Title"),
+      line(page, 500, "Story on page " + page),
+    ]);
+    const result = excludePageArtifacts(lines);
+    expect(result.kept.map((item) => item.text)).toEqual([
+      "Story on page 1",
+      "Story on page 2",
+      "Story on page 3",
+    ]);
+    expect(result.excluded.every((item) => item.reason === "repeated-header")).toBe(true);
+  });
+
+  it("drops a footer page number and keeps a page number in the body", () => {
+    const result = excludePageArtifacts([
+      line(1, 500, "The story continues here."),
+      line(1, 400, "17"),
+      line(1, 40, "42"),
+    ]);
+    expect(result.kept.map((item) => item.text)).toEqual([
+      "The story continues here.",
+      "17",
+    ]);
+    expect(result.excluded).toEqual([
+      { line: line(1, 40, "42"), reason: "margin-page-number" },
+    ]);
+  });
+
+  it("keeps a sentence repeated in the body and a margin line seen once", () => {
+    const lines = [
+      line(1, 960, "A line near the edge."),
+      ...[1, 2, 3].map((page) => line(page, 500, "The same sentence.")),
+      line(2, 960, "Only twice"),
+      line(3, 960, "Only twice"),
+    ];
+    const result = excludePageArtifacts(lines);
+    expect(result.kept.map((item) => item.text)).toEqual([
+      "A line near the edge.",
+      "The same sentence.",
+      "The same sentence.",
+      "The same sentence.",
+      "Only twice",
+      "Only twice",
+    ]);
+    expect(result.excluded).toEqual([]);
   });
 });
 
