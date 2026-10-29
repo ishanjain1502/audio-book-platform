@@ -39,6 +39,9 @@ yarn-error.log*
 # local worktrees
 .worktrees/
 
+# per-upload extraction reports
+/logs/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

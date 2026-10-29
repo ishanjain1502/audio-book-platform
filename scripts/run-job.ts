@@ -20,6 +20,8 @@ import { closeDb } from "../src/lib/db/client";
 import { prepareJobFromUpload } from "../src/lib/pipeline/prepareUpload";
 import { jobIsPrepared } from "../src/lib/pipeline/jobReady";
 import { createJobLogger } from "../src/lib/jobs/jobLog";
+import { initNeatlogs } from "../src/lib/neatlogs/init";
+import { flush, shutdown, trace } from "neatlogs";
 
 type RunMode = "full" | "annotate" | "synthesize";
 
@@ -49,6 +51,12 @@ async function main() {
 
   const dir = jobDir(jobId);
   const log = createJobLogger(jobId);
+  const tracesLlm = mode !== "synthesize";
+  if (tracesLlm) {
+    const workflowName =
+      mode === "full" ? "audiobook-full-pipeline" : "audiobook-annotate";
+    await initNeatlogs(workflowName);
+  }
 
   try {
     if (jobIsPrepared(jobId)) {
@@ -115,9 +123,13 @@ async function main() {
     };
 
     if (mode === "full") {
-      await runJob(jobId, onProgress);
+      await trace({ kind: "WORKFLOW", name: "audiobook-full-pipeline" }, () =>
+        runJob(jobId, onProgress),
+      );
     } else if (mode === "annotate") {
-      await runAnnotation(jobId, onProgress);
+      await trace({ kind: "WORKFLOW", name: "audiobook-annotate" }, () =>
+        runAnnotation(jobId, onProgress),
+      );
     } else {
       await runSynthesis(jobId, onProgress);
     }
@@ -147,6 +159,10 @@ async function main() {
     process.exitCode = 1;
   } finally {
     closeDb();
+    if (tracesLlm) {
+      await flush();
+      await shutdown();
+    }
   }
 }
 

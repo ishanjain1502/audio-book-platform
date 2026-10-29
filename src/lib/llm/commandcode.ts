@@ -1,17 +1,24 @@
 import OpenAI from "openai";
+import { wrapOpenAI } from "neatlogs";
 import type { z } from "zod";
 
+let client: OpenAI | null = null;
+
 function getClient(): OpenAI {
+  if (client) return client;
   const apiKey = process.env.COMMANDCODE_API_KEY;
   if (!apiKey) {
     throw new Error("COMMANDCODE_API_KEY is not set");
   }
-  return new OpenAI({
-    apiKey,
-    baseURL:
-      process.env.COMMANDCODE_BASE_URL ??
-      "https://api.commandcode.ai/provider/v1",
-  });
+  client = wrapOpenAI(
+    new OpenAI({
+      apiKey,
+      baseURL:
+        process.env.COMMANDCODE_BASE_URL ??
+        "https://api.commandcode.ai/provider/v1",
+    }),
+  );
+  return client;
 }
 
 export function getCommandcodeModel(): string {

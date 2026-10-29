@@ -47,6 +47,12 @@ describe("buildStoryExtract", () => {
     });
     expect(result.diagnostics.excluded.frontMatter).toBe(2);
     expect(info).toHaveBeenCalledWith(result.diagnostics);
+    const report = String(info.mock.calls[1][0]);
+    expect(report).toContain("front-matter (2)");
+    expect(report).toContain("Copyright");
+    expect(report).toContain("empty (2)");
+    expect(report).toContain("failed (3)");
+    expect(report).not.toContain("word0");
     expect(JSON.stringify(result.diagnostics)).not.toContain("word0");
   });
 

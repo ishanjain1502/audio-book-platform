@@ -18,6 +18,7 @@
     "ffmpeg-static": "^5.3.0",
     "lucide-react": "^1.61.0",
     "music-metadata": "^11.0.0",
+    "neatlogs": "^1.1.28",
     "next": "^15.1.0",
     "openai": "^4.77.0",
     "p-limit": "^6.2.0",
