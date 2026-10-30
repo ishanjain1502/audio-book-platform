@@ -1,5 +1,6 @@
 import { canGenerateAudiobook } from "@/lib/book/confirmRules";
 import { sectionIsComplete } from "@/lib/annotate/sectionReady";
+import { parseAnnotationTurns } from "@/lib/annotate/turns";
 import { getBook, updateBookMeta } from "@/lib/book/meta";
 import { getDb } from "@/lib/db/client";
 import { readJobStatus, writeJobStatus } from "@/lib/jobs/statusFile";
@@ -37,6 +38,17 @@ function annotationReadiness(jobId: number): {
   return { sectionsComplete, allReviewed };
 }
 
+function annotationLinesHaveText(jobId: number): boolean {
+  const rows = getDb()
+    .prepare("SELECT annotated_text FROM segments WHERE job_id = ?")
+    .all(jobId) as { annotated_text: string | null }[];
+  if (rows.length === 0) return false;
+  return rows.every((row) => {
+    const turns = parseAnnotationTurns(row.annotated_text ?? "");
+    return turns.length > 0 && turns.every((turn) => turn.text.trim().length > 0);
+  });
+}
+
 export function confirmJob(
   jobId: number,
   input: { title: string; author: string | null; pageCount: number },
@@ -57,11 +69,13 @@ export function confirmJob(
     pageCount: input.pageCount,
     sectionsComplete,
     allReviewed,
+    linesHaveText: annotationLinesHaveText(jobId),
   });
   if (!gate.ok) {
     const status =
       gate.reason === "Annotation is not ready" ||
-      gate.reason === "Every section must be checked"
+      gate.reason === "Every section must be checked" ||
+      gate.reason === "Every line must have text"
         ? 409
         : 400;
     return { ok: false, status, error: gate.reason };

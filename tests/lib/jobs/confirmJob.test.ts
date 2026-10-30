@@ -87,6 +87,74 @@ describe("confirmJob", () => {
     expect(row.status).toBe("queued");
   });
 
+  it("rejects an empty saved line and does not spawn synthesis", async () => {
+    const jobId = await seed("awaiting_annotation", true);
+    const { getDb } = await import("@/lib/db/client");
+    getDb()
+      .prepare(
+        "INSERT INTO chapters (job_id, idx, title, text, reviewed) VALUES (?, 0, ?, ?, 1)",
+      )
+      .run(jobId, "Chapter I", "Hello.");
+    getDb()
+      .prepare(
+        `INSERT INTO segments (job_id, chapter_idx, paragraph_idx, annotated_text)
+         VALUES (?, 0, 0, ?)`,
+      )
+      .run(jobId, "<|speaker:0|>   ");
+    const spawned: string[] = [];
+    const { confirmJob } = await import("@/lib/jobs/confirmJob");
+    const result = confirmJob(
+      jobId,
+      { title: "Original", author: "Ada", pageCount: 10 },
+      () => {
+        spawned.push("synthesize");
+      },
+    );
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: "Every line must have text",
+    });
+    expect(spawned).toEqual([]);
+    const row = getDb().prepare("SELECT jobs.status, annotated_text FROM jobs JOIN segments ON segments.job_id = jobs.id WHERE jobs.id = ?").get(jobId) as {
+      status: string;
+      annotated_text: string;
+    };
+    expect(row.status).toBe("awaiting_annotation");
+    expect(row.annotated_text).toBe("<|speaker:0|>   ");
+  });
+
+  it("rejects a segment that parses to no turns and does not spawn synthesis", async () => {
+    const jobId = await seed("awaiting_annotation", true);
+    const { getDb } = await import("@/lib/db/client");
+    getDb()
+      .prepare(
+        "INSERT INTO chapters (job_id, idx, title, text, reviewed) VALUES (?, 0, ?, ?, 1)",
+      )
+      .run(jobId, "Chapter I", "Hello.");
+    getDb()
+      .prepare(
+        `INSERT INTO segments (job_id, chapter_idx, paragraph_idx, annotated_text)
+         VALUES (?, 0, 0, ?)`,
+      )
+      .run(jobId, "");
+    const spawned: string[] = [];
+    const { confirmJob } = await import("@/lib/jobs/confirmJob");
+    const result = confirmJob(
+      jobId,
+      { title: "Original", author: "Ada", pageCount: 10 },
+      () => {
+        spawned.push("synthesize");
+      },
+    );
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: "Every line must have text",
+    });
+    expect(spawned).toEqual([]);
+  });
+
   it("rejects confirm before research is saved", async () => {
     const jobId = await seed("awaiting_review", false);
     const { confirmJob } = await import("@/lib/jobs/confirmJob");
