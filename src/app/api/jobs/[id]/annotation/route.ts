@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { readAnnotation } from "@/lib/jobs/readAnnotation";
-import { setSectionReviewed, setTurnSpeaker } from "@/lib/jobs/updateAnnotation";
+import {
+  replaceParagraphTurns,
+  setSectionReviewed,
+  setTurnSpeaker,
+} from "@/lib/jobs/updateAnnotation";
 
 export const runtime = "nodejs";
 
@@ -31,7 +35,26 @@ export async function PATCH(
     paragraphIdx?: number;
     turnIdx?: number;
     speakerIndex?: number;
+    turns?: { speakerIndex: number; text: string }[];
   };
+  if (
+    body.chapterIdx != null &&
+    body.paragraphIdx != null &&
+    Array.isArray(body.turns)
+  ) {
+    const result = replaceParagraphTurns(jobId, {
+      chapterIdx: body.chapterIdx,
+      paragraphIdx: body.paragraphIdx,
+      turns: body.turns,
+    });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+    return NextResponse.json({
+      paragraphIdx: result.paragraphIdx,
+      turns: result.turns,
+    });
+  }
   if (
     body.paragraphIdx != null &&
     body.turnIdx != null &&
