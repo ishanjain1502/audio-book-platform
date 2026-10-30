@@ -49,6 +49,7 @@ describe("canGenerateAudiobook", () => {
       pageCount: 12,
       sectionsComplete: true,
       allReviewed: true,
+      linesHaveText: true,
     };
     expect(canGenerateAudiobook(base)).toEqual({
       ok: true,
@@ -65,6 +66,16 @@ describe("canGenerateAudiobook", () => {
       reason: "Annotation is not ready",
     });
     expect(canGenerateAudiobook({ ...base, allReviewed: false })).toMatchObject({
+      ok: false,
+      reason: "Every section must be checked",
+    });
+    expect(canGenerateAudiobook({ ...base, linesHaveText: false })).toMatchObject({
+      ok: false,
+      reason: "Every line must have text",
+    });
+    expect(
+      canGenerateAudiobook({ ...base, allReviewed: false, linesHaveText: false }),
+    ).toMatchObject({
       ok: false,
       reason: "Every section must be checked",
     });

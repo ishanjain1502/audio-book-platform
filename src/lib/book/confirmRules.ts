@@ -35,6 +35,7 @@ export function canGenerateAudiobook(input: {
   pageCount: number;
   sectionsComplete: boolean;
   allReviewed: boolean;
+  linesHaveText: boolean;
 }):
   | { ok: true; title: string; author: string | null; pageCount: number }
   | { ok: false; reason: string } {
@@ -48,6 +49,9 @@ export function canGenerateAudiobook(input: {
   }
   if (!input.allReviewed) {
     return { ok: false, reason: "Every section must be checked" };
+  }
+  if (!input.linesHaveText) {
+    return { ok: false, reason: "Every line must have text" };
   }
   return {
     ok: true,
