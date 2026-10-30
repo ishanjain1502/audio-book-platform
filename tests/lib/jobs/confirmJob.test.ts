@@ -153,6 +153,10 @@ describe("confirmJob", () => {
       error: "Every line must have text",
     });
     expect(spawned).toEqual([]);
+    const row = getDb().prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as {
+      status: string;
+    };
+    expect(row.status).toBe("awaiting_annotation");
   });
 
   it("rejects confirm before research is saved", async () => {

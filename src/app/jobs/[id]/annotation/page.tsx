@@ -58,6 +58,7 @@ export default function AnnotationPage({
   const [writing, setWriting] = useState(false);
   const [editing, setEditing] = useState<OpenLine | null>(null);
   const openRef = useRef<{ sectionN: number; paragraphIdx: number } | null>(null);
+  const persistInFlight = useRef<Promise<SavedParagraph | null> | null>(null);
   const writeGen = useRef(0);
   openRef.current = editing
     ? { sectionN: editing.sectionN, paragraphIdx: editing.paragraphIdx }
@@ -175,33 +176,43 @@ export default function AnnotationPage({
     turns: AnnotationTurn[],
   ): Promise<SavedParagraph | null> {
     if (!id) return null;
-    setWriting(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/jobs/${id}/annotation`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chapterIdx: section.n - 1,
-          paragraphIdx,
-          turns,
-        }),
-      });
-      const body = (await res.json()) as {
-        error?: string;
-        paragraphIdx?: number;
-        turns?: SavedParagraph["turns"];
-      };
-      if (!res.ok || body.paragraphIdx == null || !body.turns) {
-        setError(body.error ?? "Could not update line");
-        return null;
+    const promise = (async () => {
+      setWriting(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/jobs/${id}/annotation`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chapterIdx: section.n - 1,
+            paragraphIdx,
+            turns,
+          }),
+        });
+        const body = (await res.json()) as {
+          error?: string;
+          paragraphIdx?: number;
+          turns?: SavedParagraph["turns"];
+        };
+        if (!res.ok || body.paragraphIdx == null || !body.turns) {
+          setError(body.error ?? "Could not update line");
+          return null;
+        }
+        const saved = { paragraphIdx: body.paragraphIdx, turns: body.turns };
+        writeGen.current += 1;
+        showSaved(section.n, saved);
+        return saved;
+      } finally {
+        setWriting(false);
       }
-      const saved = { paragraphIdx: body.paragraphIdx, turns: body.turns };
-      writeGen.current += 1;
-      showSaved(section.n, saved);
-      return saved;
+    })();
+    persistInFlight.current = promise;
+    try {
+      return await promise;
     } finally {
-      setWriting(false);
+      if (persistInFlight.current === promise) {
+        persistInFlight.current = null;
+      }
     }
   }
 
@@ -324,6 +335,11 @@ export default function AnnotationPage({
 
   async function confirm() {
     if (!id || !book) return;
+    const pending = persistInFlight.current;
+    if (pending) {
+      const saved = await pending;
+      if (!saved) return;
+    }
     setSaving(true);
     setError(null);
     const res = await fetch(`/api/jobs/${id}/confirm`, {
@@ -344,8 +360,25 @@ export default function AnnotationPage({
     router.push(`/jobs/${id}`);
   }
 
+  function displayedLineText(
+    section: AnnotationSection,
+    message: AnnotationMessage,
+  ): string {
+    if (
+      editing &&
+      editing.sectionN === section.n &&
+      editing.paragraphIdx === message.paragraphIdx &&
+      editing.turnIdx === message.turnIdx
+    ) {
+      return editing.draft;
+    }
+    return message.text;
+  }
+
   const linesHaveText = sections.every((section) =>
-    section.messages.every((message) => message.text.trim().length > 0),
+    section.messages.every(
+      (message) => displayedLineText(section, message).trim().length > 0,
+    ),
   );
   const canConfirm =
     status === "awaiting_annotation" &&

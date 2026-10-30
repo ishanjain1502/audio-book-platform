@@ -176,6 +176,20 @@ describe("updateAnnotation", () => {
       ],
     });
     expect(stored()).toBe("<|speaker:0|>One [pause]<|speaker:1|>  ");
+    getDb().prepare("UPDATE jobs SET status = ? WHERE id = ?").run("annotating", jobId);
+    expect(
+      replaceParagraphTurns(jobId, {
+        chapterIdx: 0,
+        paragraphIdx: 0,
+        turns: [{ speakerIndex: 1, text: "While annotating" }],
+      }),
+    ).toEqual({
+      ok: true,
+      paragraphIdx: 0,
+      turns: [{ turnIdx: 0, speakerIndex: 1, speakerName: "Daisy", text: "While annotating" }],
+    });
+    expect(stored()).toBe("<|speaker:1|>While annotating");
+    getDb().prepare("UPDATE jobs SET status = ? WHERE id = ?").run("awaiting_annotation", jobId);
     expect(
       (getDb().prepare("SELECT COUNT(*) AS c FROM segments WHERE job_id = ?").get(jobId) as { c: number }).c,
     ).toBe(1);
@@ -207,7 +221,7 @@ describe("updateAnnotation", () => {
         turns: [{ speakerIndex: 9, text: "No" }],
       }),
     ).toEqual({ ok: false, status: 400, error: "Unknown speaker" });
-    expect(stored()).toBe("<|speaker:0|>One [pause]<|speaker:1|>  ");
+    expect(stored()).toBe("<|speaker:1|>While annotating");
 
     getDb()
       .prepare("UPDATE chapters SET text = ? WHERE job_id = ? AND idx = 0")
@@ -219,7 +233,7 @@ describe("updateAnnotation", () => {
         turns: [{ speakerIndex: 0, text: "Changed" }],
       }),
     ).toEqual({ ok: false, status: 409, error: "Section is not ready" });
-    expect(stored()).toBe("<|speaker:0|>One [pause]<|speaker:1|>  ");
+    expect(stored()).toBe("<|speaker:1|>While annotating");
 
     getDb().prepare("UPDATE chapters SET text = ? WHERE job_id = ? AND idx = 0").run("One.", jobId);
     getDb().prepare("UPDATE jobs SET status = ? WHERE id = ?").run("queued", jobId);
