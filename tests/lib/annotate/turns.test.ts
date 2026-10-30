@@ -3,6 +3,7 @@ import {
   AnnotationTurnError,
   parseAnnotationTurns,
   replaceSpeakerTurn,
+  serializeAnnotationTurns,
 } from "@/lib/annotate/turns";
 
 describe("parseAnnotationTurns", () => {
@@ -35,6 +36,28 @@ describe("replaceSpeakerTurn", () => {
     expect(() => replaceSpeakerTurn("<|speaker:0|>Hi", 3, 1)).toThrow(AnnotationTurnError);
     expect(() => replaceSpeakerTurn("Hello <|speaker:1|>there", 0, 2)).toThrow(
       AnnotationTurnError,
+    );
+  });
+});
+
+describe("serializeAnnotationTurns", () => {
+  it("writes an explicit speaker tag on every line, including an empty line", () => {
+    expect(
+      serializeAnnotationTurns([
+        { speakerIndex: 0, text: "One [pause]" },
+        { speakerIndex: 1, text: "" },
+      ]),
+    ).toBe("<|speaker:0|>One [pause]<|speaker:1|>");
+  });
+
+  it("round-trips a paragraph that already uses explicit speaker tags", () => {
+    const annotated = "<|speaker:0|>One [pause]<|speaker:1|>there";
+    expect(serializeAnnotationTurns(parseAnnotationTurns(annotated))).toBe(annotated);
+  });
+
+  it("adds an explicit narrator tag when the stored text had none", () => {
+    expect(serializeAnnotationTurns(parseAnnotationTurns("Hello"))).toBe(
+      "<|speaker:0|>Hello",
     );
   });
 });

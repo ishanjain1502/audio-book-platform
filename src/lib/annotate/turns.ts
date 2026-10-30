@@ -51,3 +51,9 @@ export function replaceSpeakerTurn(
     return `<|speaker:${speakerIndex}|>`;
   });
 }
+
+export function serializeAnnotationTurns(turns: AnnotationTurn[]): string {
+  return turns
+    .map((turn) => `<|speaker:${turn.speakerIndex}|>${turn.text}`)
+    .join("");
+}
